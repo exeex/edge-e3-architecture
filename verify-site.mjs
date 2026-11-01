@@ -33,3 +33,11 @@ for(let phase=0;phase<8;phase++){
 for(const fixture of [w.E3MeasuredTrace,w.E3TensorMeasuredTrace])for(const channel of fixture.channels){let cursor=fixture.begin;for(const [a,b] of channel.runs){assert.equal(a,cursor);assert(b>a);cursor=b;}assert.equal(cursor,fixture.end);}
 assert.equal((html.match(/class="chapter-header"/g)||[]).length,5);
 console.log('PASS: standalone assets, JavaScript, public source URLs, model routes, trace continuity and 64 bank allocations / PNGs.');
+
+for(const mode of w.E3TensorPipeline.modes){
+ const svg=w.E3TensorPipeline.render(mode.id);
+ assert(svg.includes('data-tensor-node="post"'));
+ assert(svg.includes('PSUM add'));
+ assert(svg.includes('[data-tensor-node]{opacity:1}'),'Focused modes must keep hardware blocks readable');
+}
+console.log('PASS: PSUM add remains present and readable in all 16 focused Tensor modes.');
