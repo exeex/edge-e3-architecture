@@ -45,12 +45,15 @@ console.log('PASS: PSUM add remains present and readable in all 16 focused Tenso
 // Catch dangling memory arrows, independently of whether their labels are visible.
 function tensorPoints(d){let x=0,y=0;const out=[];for(const m of d.matchAll(/([MLHV])(-?\d+(?:\.\d+)?)(?:\s+(-?\d+(?:\.\d+)?))?/g)){if(m[1]==='M'||m[1]==='L'){x=+m[2];y=+m[3];}else if(m[1]==='H')x=+m[2];else y=+m[2];out.push([x,y]);}return out;}
 function atBoundary(id,[px,py]){const [,x,y,width,height]=w.E3TensorPipeline.nodes.find(n=>n[0]===id);return ((px===x||px===x+width)&&py>=y&&py<=y+height)||((py===y||py===y+height)&&px>=x&&px<=x+width);}
-for(const [path,from,to] of [['writeback','output','psum-memory'],['sram-psum','psum-memory','psum']]){
+for(const [path,from,to] of [['writeback','output','o-writes'],['p-read-window','p-input','psum']]){
  const points=tensorPoints(w.E3TensorPipeline.paths.find(p=>p[0]===path)[1]);assert(atBoundary(from,points[0]),`${path} must leave ${from}`);assert(atBoundary(to,points.at(-1)),`${path} must terminate at ${to}`);
 }
-for(const id of ['psum-stream','psum-once'])assert(w.E3TensorPipeline.modes.find(m=>m.id===id).paths.includes('sram-psum'));
-for(const id of ['psum-none','psum-rsum'])assert(!w.E3TensorPipeline.modes.find(m=>m.id===id).paths.includes('sram-psum'));
-for(const mode of w.E3TensorPipeline.modes.filter(m=>m.active.includes('output')))assert(mode.paths.includes('writeback')&&mode.active.includes('psum-memory'));
-console.log('PASS: O writeback and P read routes terminate at real memory ports; NO_PSUM / RSUM omit external P reads.');
+for(const id of ['psum-stream','psum-once'])assert(w.E3TensorPipeline.modes.find(m=>m.id===id).paths.includes('p-read-window'));
+for(const id of ['psum-none','psum-rsum'])assert(!w.E3TensorPipeline.modes.find(m=>m.id===id).paths.includes('p-read-window'));
+for(const mode of w.E3TensorPipeline.modes.filter(m=>m.active.includes('output')))assert(mode.paths.includes('writeback')&&mode.active.includes('o-writes'));
+console.log('PASS: O writeback and P read routes terminate at named read/write endpoints; NO_PSUM / RSUM omit external P reads.');
 
-assert(w.E3TensorPipeline.render('psum-stream').match(/data-tensor-path="sram-psum"[^>]*><path d="([^"]+)"/)[1].includes('M1092 1495'),'P read crossing must not join the RSUM drain');
+assert(w.E3TensorPipeline.render('psum-stream').match(/data-tensor-path="p-read-window"[^>]*><path d="([^"]+)"/)[1].includes('M1092 1495'),'P read crossing must not join the RSUM drain');
+
+assert(!w.E3TensorPipeline.nodes.some(n=>n[5]==='DTCM / SRAM'),'Tensor overview uses logical streams, not a shared memory block');
+assert.equal(w.E3TensorPipeline.nodes.find(n=>n[0]==='p-input')[5],'P input reads');

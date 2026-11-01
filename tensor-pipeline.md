@@ -201,10 +201,13 @@ this layout change does not change numerical ownership or measured behavior.
 Data and control geometry checks cover block intersections in addition to the
 source/mode checks. Standalone mode exports use the same final geometry.
 
-The memory feedback illustration has an explicit DTCM / SRAM block. O queue
-writes terminate at its lower port; a separate read route leaves its right port
-and enters P SRAM reads. This is a sequence of memory transactions between
-reduction tiles, not a combinational O-to-P feedback wire. P stream / PSUM_ONCE
-highlight the read route; NO_PSUM / RSUM leave that route unselected while
-retaining output writeback. The P read route has a small gap where it crosses
-the independent dot-local RSUM drain line; the two streams do not join there.
+The diagram uses independent logical read/write stream endpoints, not a shared
+physical memory block. P input reads (from DTCM / SRAM) feed the P read window;
+O queue drains into O output writes (to DTCM / SRAM). Memory source/destination
+belongs in subtitles; there is no O-to-P wire or implied private P SRAM.
+Software can reuse O data as P on a later reduction tile through separate memory
+transactions. P stream / PSUM_ONCE highlight P reads; NO_PSUM / RSUM leave that
+read route unselected while retaining output writes. A gap distinguishes P's
+read route from the independent dot-local RSUM drain at their crossing.
+I input reads, WLD input reads, SLD input reads and weight ring slots follow the
+same functional naming convention. Chapter 05 describes physical bank allocation.

@@ -36,9 +36,9 @@
   const nodes=[
     ['gpr',40,40,240,90,'RV32 Registers','captured GPR parameters'],
     ['owner',350,40,650,100,'Tensor descriptor / control owner','CSR dtype / wtype · START options · WSLD config'],
-    ['dma',40,270,210,60,'Strided DMA','external → SRAM'],
-    ['ring',40,390,210,70,'SRAM circular slots','producer / consumer credits'],
-    ['wld',310,390,180,70,'WLD / WLD-T','packed data + type tag'],
+    ['dma',40,270,210,60,'Strided DMA','external ↔ DTCM / SRAM'],
+    ['ring',40,390,210,70,'Weight ring slots','DTCM / SRAM · credits'],
+    ['wld',310,390,180,70,'WLD input reads','WLD-T · from DTCM/SRAM'],
     ['w-bf16',600,290,180,55,'BF16 pass','wtype 1 → format 0'],
     ['w-int8',600,370,180,55,'INT8 → BF16','wtype 2 → format 1'],
     ['w-e4m3',600,450,180,55,'E4M3FN → BF16','wtype 3 → format 2'],
@@ -46,11 +46,11 @@
     ['w-e5m2',600,610,180,55,'E5M2 → BF16','wtype 5 → format 4'],
     ['wselect',840,290,80,375,'Weight','typecast'],
     ['banks',980,440,210,90,'Local weight A / B','BF16 cells · active / fill'],
-    ['input',40,910,250,80,'I · input reads','SRAM responses'],
+    ['input',40,910,250,80,'I input reads','from DTCM / SRAM'],
     ['window',360,910,220,80,'Input window','order · validity · prefetch'],
     ['dot',980,910,210,80,'8 × dot8','64 products / vector'],
     ['rsum',980,1130,210,70,'RSUM accumulator','inside each dot kernel'],
-    ['sld',1240,280,190,65,'SLD / WSLD reads','packed scale codes'],
+    ['sld',1240,280,190,65,'SLD input reads','WSLD · from DTCM / SRAM'],
     ['s-bf16',1510,260,180,60,'BF16 scale','stype 0 · 16-bit'],
     ['s-mx',1510,350,180,60,'MXFP4 scale','stype 1 · E8M0'],
     ['s-nv',1510,440,180,60,'NVFP4 scale','stype 2 · E4M3 × global'],
@@ -62,13 +62,14 @@
     ['scale-mul',1370,910,190,80,'Dot × scale','BF22 × BF20 wide path'],
     ['scale-select',1610,890,60,170,'Scale','enable'],
     ['post',1740,910,160,80,'PSUM add','aligned partial sum'],
-    ['psum',1240,1160,180,70,'P · SRAM reads','per vector / once'],
-    ['psum-memory',320,1230,220,90,'DTCM / SRAM','O writes · later P reads'],
+    ['psum',1240,1160,180,70,'P read window','stream / once responses'],
+    ['p-input',320,1230,220,90,'P input reads','from DTCM / SRAM'],
     ['zero',1240,1080,180,55,'Zero','NO_PSUM'],
     ['psum-hold',1240,1260,180,70,'P vector hold','PSUM_ONCE'],
     ['psum-select',1540,1060,80,280,'P','select'],
     ['format',1970,910,150,80,'Output format','BF16 / FP32 container'],
-    ['output',2170,910,100,80,'O queue','write drain']
+    ['output',2170,910,100,80,'O queue','write drain'],
+    ['o-writes',1960,1360,280,80,'O output writes','to DTCM / SRAM']
   ];
   const paths=[
     ['gpr-owner','M280 85H350','data'],
@@ -89,7 +90,7 @@
     ['scaled-to-post','M1670 950H1740','data'],
     ['post-output','M1900 950H1970','data'],['format-output','M2120 950H2170','data'],
     ['rsum-merge','M1190 975H1215V1165H1190','psum'],
-    ['rsum-output','M1085 1200V1370H2040V990','psum'],
+    ['rsum-output','M1085 1200V1350H2040V990','psum'],
     ['static-scale','M1650 690H1505','optional'],
     ['stream-scale','M1650 790H1505','optional'],
     ['scale','M1465 840V910','optional'],
@@ -98,8 +99,8 @@
     ['zero-p','M1420 1107.5H1540','psum'],
     ['read-hold','M1330 1230V1260','psum'],['hold-p','M1420 1295H1540','psum'],
     ['stream-p','M1420 1195H1540','psum'],['psum-post','M1620 1190H1830V990','psum'],
-    ['writeback','M2220 990V1440H430V1320','psum'],
-    ['sram-psum','M540 1275H1218V1195H1240','psum']
+    ['writeback','M2220 990V1360','psum'],
+    ['p-read-window','M540 1275H1218V1195H1240','psum']
   ];
   const weightKeys=['bf16','int8','e4m3','fp4','e5m2'];
   weightKeys.forEach((key,i)=>{
@@ -193,9 +194,9 @@
   add('scale-static','Scale delivery','Held / reuse','START USE_SCALE + SLD static/reuse',[...scaled,'scale-hold'],[...scaledPaths,'static-scale'],'Use the held scale vector captured for this work descriptor and multiply each matching dot result before adding P.','SLD can prepare or reuse a scale vector. It is separate from WLD and from choosing the packed scale encoding. This view uses zero P to isolate scaling.',['scale_buffers','start_modes','post']);
   add('scale-stream','Scale delivery','Per-vector stream','START USE_SCALE + SCALE_STREAM',[...scaled,'scale-fifo'],[...scaledPaths,'stream-scale'],'Consume a matching scale vector from the stream FIFO when input_compute_fire admits an input vector.','Scale stream availability participates in compute admission. RSUM disables this route. This view uses zero P to isolate scaling.',['engine','scale_buffers','start_modes','post']);
   for(const view of [...phases,...modes]){
-    if(view.active.includes('output'))view.paths.push('writeback');
-    if(view.active.includes('psum'))view.paths.push('sram-psum');
-    if(view.paths.includes('writeback')||view.paths.includes('sram-psum'))view.active.push('psum-memory');
+    if(view.active.includes('output')){view.paths.push('writeback');view.active.push('o-writes');}
+    if(view.active.includes('psum'))view.paths.push('p-read-window');
+    if(view.paths.includes('p-read-window'))view.active.push('p-input');
     if(view.paths.includes('ctrl-format'))view.paths.push('ctrl-tile-format');
     for(const group of controlGroups)if(group.routes.some(id=>view.paths.includes(id))){view.active.push(group.node);view.paths.push(group.feed);}
     view.active=[...new Set(view.active)];view.paths=[...new Set(view.paths)];
@@ -208,7 +209,7 @@
     const active=(kind,key)=>!selected||selected[kind].includes(key)?'is-active':'';
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2280 1760" role="img" aria-labelledby="tensor-svg-title tensor-svg-desc"><title id="tensor-svg-title">Tensor dataflow and work ownership${selected?.label?' — '+esc(selected.label):''}</title><desc id="tensor-svg-desc">RV32 registers supply captured Tensor configuration. WLD transports packed weights to per-dot ingress typecasts and local A/B cells. Descriptor controls select P, dot-local RSUM, scale decoding, scale delivery and output format.</desc><style>${style}</style><defs>${['data','weight','psum','optional','control'].map(k=>`<marker id="tensor-arrow-${k}" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L8 4L0 8Z" class="tensor-arrow-${k}"/></marker>`).join('')}</defs><rect class="tensor-bg" width="2280" height="1760"/><rect class="tensor-memory" x="570" y="470" width="660" height="1020"/><text class="tensor-caption" x="590" y="495">DOT-LOCAL PATHS · 8 INSTANCES SHOWN AS GROUPS</text><text class="tensor-caption" x="895" y="493">wtype</text><text class="tensor-caption" x="1805" y="465">stype</text><text class="tensor-caption" x="1660" y="1095">USE_SCALE</text><text class="tensor-caption" x="1490" y="865">scale source</text><text class="tensor-caption" x="1595" y="1265">P mode</text><text class="tensor-caption" x="1100" y="1335">RSUM</text>${paths.map(([id,d,kind])=>{
       const attrs=`data-tensor-path="${id}" class="tensor-wire tensor-${kind} ${active('paths',id)}"`;
-      if(id==='sram-psum')return `<g ${attrs}><path d="${d.replace('L1218 1495','L1078 1495M1092 1495L1218 1495')}"/><path d="M1232 1415H1240" marker-end="url(#tensor-arrow-psum)"/></g>`;
+      if(id==='p-read-window')return `<g ${attrs}><path d="${d.replace('L1218 1495','L1078 1495M1092 1495L1218 1495')}"/><path d="M1232 1415H1240" marker-end="url(#tensor-arrow-psum)"/></g>`;
       if(kind!=='control')return `<path ${attrs} d="${d}" marker-end="url(#tensor-arrow-${kind})"/>`;
       const pts=points(d),end=pts[pts.length-1],prev=pts[pts.length-2];
       const arrowStart=end.map((v,i)=>v-Math.sign(v-prev[i])*8);
@@ -219,7 +220,7 @@
       const shape=down?`<path class="tensor-box" d="M${x} ${y}H${x+w}V${y+h-25}L${x+w/2} ${y+h}L${x} ${y+h-25}Z"/>`:mux?`<path class="tensor-box" d="M${x} ${y}L${x+w} ${y+25}V${y+h-25}L${x} ${y+h}Z"/>`:`<rect class="tensor-box" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
       const ty=mux?y+h/2-4:y+26;
       return `<g data-tensor-node="${id}" class="${active('active',id)} ${['csr-fields','start-fields','wsld-fields'].includes(id)?'tensor-control-source':''}" role="button" tabindex="0" aria-label="${esc(title)}: explore this path">${shape}${mux&&!down?`<path class="tensor-control-port" d="M${x+w/2} ${y}V${y+12.5}"/>`:''}<text class="tensor-title ${mux?'tensor-mux-title':''}" x="${x+w/2}" y="${ty}" text-anchor="middle">${esc(title)}</text><text class="tensor-sub" x="${x+w/2}" y="${ty+21}" text-anchor="middle">${esc(sub)}</text>${id==='owner'?'<text class="tensor-sub" x="675" y="121" text-anchor="middle">pointers · count · accepted / pending / queued work</text>':''}</g>`;
-    }).join('')}<text class="tensor-caption" x="985" y="1445">RSUM: one final vector</text><text class="tensor-caption" x="985" y="1465">No scale / SRAM P</text><text class="tensor-caption" x="340" y="1640">O writes → DTCM / SRAM → later P reads; separate transactions, not a combinational loop</text><text class="tensor-caption" x="40" y="1740">All blocks remain visible · bright routes mark the selected path, not clock gating · gaps at crossings mean no connection</text></svg>`;
+    }).join('')}<text class="tensor-caption" x="985" y="1445">RSUM: one final vector</text><text class="tensor-caption" x="985" y="1465">No scale / SRAM P</text><text class="tensor-caption" x="340" y="1640">Independent read / write streams · memory bank allocation is shown in Chapter 05</text><text class="tensor-caption" x="40" y="1740">All blocks remain visible · bright routes mark the selected path, not clock gating · gaps at crossings mean no connection</text></svg>`;
   }
   window.E3TensorPipeline={sources,slides,phases,nodes,paths,modes,families,controlGroups,render};
 })();
