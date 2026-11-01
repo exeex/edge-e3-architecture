@@ -52,3 +52,5 @@ for(const id of ['psum-stream','psum-once'])assert(w.E3TensorPipeline.modes.find
 for(const id of ['psum-none','psum-rsum'])assert(!w.E3TensorPipeline.modes.find(m=>m.id===id).paths.includes('sram-psum'));
 for(const mode of w.E3TensorPipeline.modes.filter(m=>m.active.includes('output')))assert(mode.paths.includes('writeback')&&mode.active.includes('psum-memory'));
 console.log('PASS: O writeback and P read routes terminate at real memory ports; NO_PSUM / RSUM omit external P reads.');
+
+assert(w.E3TensorPipeline.render('psum-stream').match(/data-tensor-path="sram-psum"[^>]*?\sd="([^"]+)"/)[1].includes('M1092 1495'),'P read crossing must not join the RSUM drain');
