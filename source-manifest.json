@@ -1,0 +1,25 @@
+{
+  "site": "https://exeex.github.io/edge-e3-architecture/",
+  "sources": {
+    "src/edge-e3/": {
+      "repository": "exeex/edge-e3",
+      "revision": "60be69f0bd06b9953d96ced7057e8ec08cb3a2ac"
+    },
+    "src/edge-32/": {
+      "repository": "exeex/edge-32",
+      "revision": "55a089b372e2a18f8fa99185db7db264ad72602d"
+    },
+    "src/edge-asic/": {
+      "repository": "exeex/edge-asic",
+      "revision": "3390ec73ac28041c4039572674ce42ee11ddbaed"
+    },
+    "src/edge-nnc/": {
+      "repository": "exeex/edge-nnc",
+      "revision": "645cc3793c1b7a309314a5e5adb3bdce9cf7556a"
+    },
+    "": {
+      "repository": "exeex/edge-cores",
+      "revision": "03f7c980cfbcff4ef101f756281c3d1baa8f4840"
+    }
+  }
+}
