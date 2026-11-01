@@ -6,12 +6,12 @@
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="Explore the Edge E3 four-stage RV32 pipeline, captured GPR commands and independent ASIC engines with an RTL-linked inspector and a source-based walkthrough.">
   <title>Edge E3 · Architecture atlas</title>
-  <link rel="stylesheet" href="styles.css?v=20261101-sticky-nav">
+  <link rel="stylesheet" href="styles.css?v=20261101-no-anchor">
   <script defer src="source-links.js"></script>
   <script defer src="architecture.js"></script>
   <script defer src="guide.js"></script>
-  <script defer src="chapter-nav.js"></script>
-  <script defer src="app.js?v=20261101-chapters-final"></script>
+  <script defer src="chapter-nav.js?v=20261101-stable-controls"></script>
+  <script defer src="app.js?v=20261101-mode-details"></script>
   <script defer src="tensor-pipeline.js?v=20261101-psum-visible"></script>
   <script defer src="tensor-view.js?v=20261101-chapters"></script>
   <script defer src="actu-pipeline.js"></script>
@@ -21,11 +21,13 @@
   <script defer src="trace-view.js"></script>
   <script defer src="sram-scheduling.js?v=20261101-rotation"></script>
   <script defer src="sram-view.js?v=20261101-rotation"></script>
+  <script defer src="chapter-controls.js?v=20261101-no-anchor"></script>
 </head>
 <body>
     <header class="chapter-directory" id="chapter-directory">
       <div class="section-label">CHAPTERS <span id="chapter-current" aria-label="Current chapter">01 / System architecture</span></div>
       <nav class="page-nav" aria-label="Chapters"><a href="#workbench">01 System architecture</a><a href="#tensor-pipeline">02 Tensor</a><a href="#actu-pipeline">03 ACTU</a><a href="#execution-model">04 Execution &amp; synchronization</a><a href="#sram-scheduling">05 SRAM scheduling</a></nav>
+      <div id="chapter-mode-dock" class="chapter-mode-dock" aria-label="Current chapter controls"></div>
     </header>
   <main>
     <section class="workbench chapter" id="workbench" aria-label="Chapter 01: System architecture">
@@ -35,16 +37,16 @@
       <div class="toolbar"><div class="modes" role="group" aria-label="Execution scenarios">
         <button data-mode="all" aria-pressed="true">Overview</button><button data-mode="setup" aria-pressed="false">Capture</button><button data-mode="start" aria-pressed="false">Start / fork</button><button data-mode="overlap" aria-pressed="false">Overlap</button><button data-mode="sync" aria-pressed="false">Sync / join</button><button data-mode="done" aria-pressed="false">Resume</button><button data-mode="cache" aria-pressed="false">Cache control</button>
       </div><div class="tools"><label>JOIN TARGET <select id="target"><option value="tensor">Tensor</option><option value="dma">DMA</option><option value="actu">ACTU</option><option value="cmpu">CMPU</option></select></label><button id="theme" aria-label="Switch to light theme">Light</button><button id="export">Export SVG ↗</button><button id="share">Copy view link</button><span id="share-status" role="status"></span></div></div>
-      <div class="scenario" aria-live="polite"><span id="mode-number">00 / OVERVIEW</span><div><strong id="mode-title"></strong><p id="mode-description"></p></div><button id="play" aria-pressed="false">▶ Play sequence</button></div>
-      <section id="cache-details" class="cache-details" aria-label="Cache control notes" hidden>
+
+
+      <div class="diagram-layout"><div class="diagram-main"><div class="viewport" id="viewport" aria-label="Architecture diagram. Use zoom controls or Shift-drag to pan."><div id="drawing"></div></div>
+      <div class="figure-footer"><div class="legend"><span><i class="key scalar"></i>Scalar data</span><span><i class="key command"></i>ASIC command / captured GPR</span><span><i class="key control"></i>Ready / completion / hold</span><span><i class="key cache"></i>Cache / address control</span><span><i class="dot"></i>Connected junction</span></div><div class="zoom"><span>SHIFT + DRAG TO PAN</span><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="Zoom in">＋</button><button id="fit">Fit</button></div></div></div>
+      <aside class="inspector" aria-label="Selected component"><div class="inspector-content" aria-live="polite">      <div class="scenario" aria-live="polite"><span id="mode-number">00 / OVERVIEW</span><div><strong id="mode-title"></strong><p id="mode-description"></p></div><button id="play" aria-pressed="false">▶ Play sequence</button></div>      <section id="cache-details" class="cache-details" aria-label="Cache control notes" hidden>
         <article><span>01 / D-CACHE</span><h4>Flush / clean / invalidate</h4><p>EX issues a <code>cache_op</code> maintenance request and waits for acceptance and completion. Cleaning and invalidation coordinate data visibility with other memory users.</p><a href="https://github.com/exeex/edge-32/blob/55a089b372e2a18f8fa99185db7db264ad72602d/rtl/ex/completion.svh">Maintenance handshake RTL ↗</a></article>
         <article><span>02 / I-CACHE</span><h4>FENCE.I</h4><p><code>FENCE.I</code> initiates I-cache invalidation, then redirects fetch after completion. It uses the EX system-instruction completion path, grouped here with CSR/system sidebands.</p><a href="https://github.com/exeex/edge-32/blob/55a089b372e2a18f8fa99185db7db264ad72602d/rtl/edge_32_cached_core.v">I-cache boundary RTL ↗</a></article>
         <article><span>03 / ADDRESS &amp; DTCM</span><h4>High 32-bit header</h4><p>Separate I/D 32-bit address headers are modified through CSR operations and committed in WB. The AXI boundary concatenates each header with the low address.</p><div class="address-word"><span>header [63:32]</span><span>address [31:0]</span></div><p>DTCM routing uses platform <code>base / mask / enable</code> inputs. The gray sideband summarizes configuration ownership; it does not imply a separate DTCM header CSR.</p><a href="https://github.com/exeex/edge-32/blob/55a089b372e2a18f8fa99185db7db264ad72602d/rtl/edge_32_axi_core.v">Header RTL ↗</a> · <a href="https://github.com/exeex/edge-32/blob/55a089b372e2a18f8fa99185db7db264ad72602d/rtl/edge_32_dtcm_router.v">DTCM router RTL ↗</a></article>
         <p class="cache-footnote">Gray lines represent functional CSR/system configuration. Maintenance requests execute in EX; address-header state commits in WB.</p>
-      </section>
-      <div class="diagram-layout"><div class="diagram-main"><div class="viewport" id="viewport" aria-label="Architecture diagram. Use zoom controls or Shift-drag to pan."><div id="drawing"></div></div>
-      <div class="figure-footer"><div class="legend"><span><i class="key scalar"></i>Scalar data</span><span><i class="key command"></i>ASIC command / captured GPR</span><span><i class="key control"></i>Ready / completion / hold</span><span><i class="key cache"></i>Cache / address control</span><span><i class="dot"></i>Connected junction</span></div><div class="zoom"><span>SHIFT + DRAG TO PAN</span><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="Zoom in">＋</button><button id="fit">Fit</button></div></div></div>
-      <aside class="inspector" aria-label="Selected component"><div class="inspector-content" aria-live="polite"><div class="section-label">COMPONENT INSPECTOR <span>Select a block</span></div><h4 id="inspect-title"></h4><p id="inspect-body"></p><dl id="inspect-contract"></dl><div id="inspect-meta"></div><a id="inspect-source" href="#">View RTL ↗</a><p><a id="inspect-more" href="#tensor-pipeline" hidden>Explore the Tensor pipeline ↓</a></p><p class="inspector-note">Functional view. Some symbols group multiple RTL owners; FPU paths are omitted.</p></div></aside></div>
+      </section><div class="section-label">COMPONENT INSPECTOR <span>Select a block</span></div><h4 id="inspect-title"></h4><p id="inspect-body"></p><dl id="inspect-contract"></dl><div id="inspect-meta"></div><a id="inspect-source" href="#">View RTL ↗</a><p><a id="inspect-more" href="#tensor-pipeline" hidden>Explore the Tensor pipeline ↓</a></p><p class="inspector-note">Functional view. Some symbols group multiple RTL owners; FPU paths are omitted.</p></div></aside></div>
     </section>
 
 
@@ -110,7 +112,7 @@
       <header class="chapter-header"><span class="chapter-number" aria-hidden="true">05</span><div><p class="chapter-kicker">CHAPTER 05</p><h2>SRAM scheduling</h2><p class="chapter-description">Butterfly routing, wide/narrow bank allocation and buffered clients.</p></div></header>
       <h3 class="subsection-title">5.1 Rotation &amp; service explorer</h3>
       <p class="small">The Chapter 2 butterfly is a teaching model: eight fixed channels visit eight bank positions over eight phases. Follow a selected route through H1, H2 and H4, then inspect the current DTCM bank-door rotation and buffered consumers. Fast / slow service follows the same phase buttons and lets P and O independently select FP32 or BF16.</p>
-      <div class="guide-steps" role="group" aria-label="SRAM scheduling views"><button data-sram-view="butterfly" aria-pressed="true">Butterfly principle</button><button data-sram-view="services" aria-pressed="false">Fast / slow service</button><button data-sram-view="buffered" aria-pressed="false">Buffered clients</button></div>
+      <div id="sram-views" class="guide-steps" role="group" aria-label="SRAM scheduling views"><button data-sram-view="butterfly" aria-pressed="true">Butterfly principle</button><button data-sram-view="services" aria-pressed="false">Fast / slow service</button><button data-sram-view="buffered" aria-pressed="false">Buffered clients</button></div>
       <div id="sram-phase-controls"><div class="sram-controls"><span>PHASE</span><div id="sram-phases" role="group" aria-label="Butterfly phase"></div><label id="sram-channel-label">FOLLOW <select id="sram-channel" aria-label="Follow SRAM channel"></select></label></div><div id="sram-formats" class="sram-controls" hidden><label>P FORMAT <select id="sram-p-format"><option value="fp32">FP32 / 256b</option><option value="bf16">BF16 / 128b</option></select></label><label>O FORMAT <select id="sram-o-format"><option value="fp32">FP32 / 256b</option><option value="bf16">BF16 / 128b</option></select></label><label>BF16 ADDRESS HALF <select id="sram-address-half"><option value="0">H0 · addr[1] = 0</option><option value="1">H1 · addr[1] = 1</option></select></label></div><p id="sram-mapping" class="small" aria-live="polite"></p></div>
       <div id="sram-drawing" class="sram-drawing"></div>
       <div class="tensor-tools"><a id="sram-png" href="exports/edge-e3-sram-phase-0.png">Open full-resolution PNG ↗</a><span id="sram-png-note"></span></div>

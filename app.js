@@ -57,7 +57,7 @@
     $('#inspect-source').title=n.source;
     $('#inspect-source').textContent=n.source.split('/').pop()+' ↗';
   }
-  function update(nextMode=mode) {
+  function update(nextMode=mode,followMode=true) {
     mode=nextMode;
     $('#cache-details').hidden=mode!=='cache';
     $('#play').hidden=mode==='cache';
@@ -81,6 +81,7 @@
     $('#ex-hold').setAttribute('visibility',mode==='sync'?'visible':'hidden');
     $('#join-target-label').textContent=mode==='sync'?`WAITING FOR ${names[target].toUpperCase()}`:mode==='done'?`${names[target].toUpperCase()} DRAINED → EX RELEASE`:'';
     timeline();
+    if(followMode)inspect(({all:'issue',setup:'capture',start:'launch',overlap:target,sync:'join',done:'join',cache:'csr'})[mode]);
     saveView();
   }
   function stop() {
@@ -185,6 +186,6 @@
   renderGuide(0,false);renderWait(0);
   const initialStep=params.get('step');
   if(initialStep && /^[1-6]$/.test(initialStep)){renderGuide(+initialStep-1);if(model.nodes.some(n=>n.id===params.get('node')))inspect(params.get('node'));}
-  else {clearGuide();inspect(selected);update();}
+  else {clearGuide();inspect(selected);update(mode,false);}
 
 })();

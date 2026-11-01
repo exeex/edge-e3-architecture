@@ -45,3 +45,13 @@ html{scroll-behavior:auto;scroll-padding-top:18px}.page-nav{display:flex;gap:24p
 
 /* Keep the full Tensor hardware visible in focused modes; fade only wires. */
 [data-tensor-node]{opacity:1}.tensor-inspector .tensor-control-origin{color:var(--muted)}
+/* Full-width drawings, with all explanatory panels below them at every width. */
+.diagram-layout,.tensor-explorer{display:block!important}.diagram-main{width:100%}.inspector{border-top:1px solid var(--rule);border-left:0}.inspector-content{position:static;max-height:none;overflow:visible;padding:22px}.inspector-content .scenario{margin:-22px -22px 22px}.inspector-content .cache-details{margin-bottom:22px}.tensor-inspector{border-left:0;border-top:1px solid var(--rule);padding:22px}.tensor-inspector>p,.inspector-content>p{max-width:110ch}.tensor-inspector h4[id]{font-size:20px}.tensor-inspector .guide-navigation{justify-content:flex-start}.tensor-inspector .guide-navigation a{margin-left:0}
+/* The active chapter contributes compact scrollable mode rows to the pinned directory. */
+.chapter-mode-dock{max-width:1784px;margin:9px auto 0;border-top:1px solid var(--rule);padding-top:7px}.dock-row{display:flex;align-items:center;gap:8px;min-width:0;margin:3px 0}.dock-label{flex:0 0 52px;font:9px var(--mono);color:var(--muted);letter-spacing:1px}.dock-buttons{display:flex;flex:1;min-width:0;gap:5px;overflow-x:auto;scrollbar-width:thin;padding:3px 2px 6px}.dock-buttons button{flex:0 0 auto;white-space:nowrap;font:10px/1.4 var(--mono);padding:6px 9px;color:var(--muted)}.dock-buttons button[aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--bg))}.dock-row select{font-size:10px;padding:6px;max-width:155px}.has-chapter-dock [data-dock-source]{display:none!important}.chapter-directory{padding-bottom:8px}.tensor-config-intro{margin-top:20px}
+@media(max-width:620px){.dock-label{flex-basis:40px;font-size:8px}.dock-row{gap:5px}.dock-buttons button{font-size:9px;padding:6px 8px}.dock-row select{max-width:120px;font-size:9px}.inspector-content,.tensor-inspector{padding:16px}.inspector-content .scenario{margin:-16px -16px 16px}}
+/* Keep the pinned band's height stable while ownership changes between chapters. */
+.chapter-directory .page-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding:2px 2px 5px}.chapter-mode-dock{min-height:90px}
+
+/* Rebuilding a pinned control row must never anchor the document to its old button. */
+body{overflow-anchor:none}.chapter-directory,.chapter-mode-dock{overflow-anchor:none}

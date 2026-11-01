@@ -369,3 +369,13 @@ The chapter directory appears before the atlas and stays pinned to the viewport.
 one link and updates the current-chapter label. Its measured height sets the
 anchor offset and inspector sticky offset. On narrow screens, the menu scrolls
 horizontally and keeps the current chapter in view without moving the document.
+
+System and Tensor explanations always appear below their full-width figures.
+The directory now hosts a compact context dock for the chapter being read:
+System modes/target, Tensor paths/configuration, ACTU modes, trace/wait controls,
+and SRAM view/phase controls. Original controls remain the single source of
+behavior; accessible proxy buttons call them and mirror selected state. The
+normal source controls stay available if JavaScript enhancement is disabled.
+System mode changes select the corresponding component explanation; explicit
+component clicks and deep links still work. The pinned band's stable height and
+measured anchor offset keep chapter handoffs from covering their headings.
