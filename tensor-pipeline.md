@@ -200,3 +200,11 @@ P needs one bend to enter +P from below. P hold remains a one-read reuse mechani
 this layout change does not change numerical ownership or measured behavior.
 Data and control geometry checks cover block intersections in addition to the
 source/mode checks. Standalone mode exports use the same final geometry.
+
+The memory feedback illustration has an explicit DTCM / SRAM block. O queue
+writes terminate at its lower port; a separate read route leaves its right port
+and enters P SRAM reads. This is a sequence of memory transactions between
+reduction tiles, not a combinational O-to-P feedback wire. P stream / PSUM_ONCE
+highlight the read route; NO_PSUM / RSUM leave that route unselected while
+retaining output writeback. The P read route has a small gap where it crosses
+the independent dot-local RSUM drain line; the two streams do not join there.

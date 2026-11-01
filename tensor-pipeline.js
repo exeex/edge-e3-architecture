@@ -63,6 +63,7 @@
     ['scale-select',1610,890,60,170,'Scale','enable'],
     ['post',1740,910,160,80,'PSUM add','aligned partial sum'],
     ['psum',1240,1160,180,70,'P · SRAM reads','per vector / once'],
+    ['psum-memory',320,1230,220,90,'DTCM / SRAM','O writes · later P reads'],
     ['zero',1240,1080,180,55,'Zero','NO_PSUM'],
     ['psum-hold',1240,1260,180,70,'P vector hold','PSUM_ONCE'],
     ['psum-select',1540,1060,80,280,'P','select'],
@@ -97,7 +98,8 @@
     ['zero-p','M1420 1107.5H1540','psum'],
     ['read-hold','M1330 1230V1260','psum'],['hold-p','M1420 1295H1540','psum'],
     ['stream-p','M1420 1195H1540','psum'],['psum-post','M1620 1190H1830V990','psum'],
-    ['writeback','M2220 990V1440H180V1320','psum']
+    ['writeback','M2220 990V1440H430V1320','psum'],
+    ['sram-psum','M540 1275H1218V1195H1240','psum']
   ];
   const weightKeys=['bf16','int8','e4m3','fp4','e5m2'];
   weightKeys.forEach((key,i)=>{
@@ -191,6 +193,9 @@
   add('scale-static','Scale delivery','Held / reuse','START USE_SCALE + SLD static/reuse',[...scaled,'scale-hold'],[...scaledPaths,'static-scale'],'Use the held scale vector captured for this work descriptor and multiply each matching dot result before adding P.','SLD can prepare or reuse a scale vector. It is separate from WLD and from choosing the packed scale encoding. This view uses zero P to isolate scaling.',['scale_buffers','start_modes','post']);
   add('scale-stream','Scale delivery','Per-vector stream','START USE_SCALE + SCALE_STREAM',[...scaled,'scale-fifo'],[...scaledPaths,'stream-scale'],'Consume a matching scale vector from the stream FIFO when input_compute_fire admits an input vector.','Scale stream availability participates in compute admission. RSUM disables this route. This view uses zero P to isolate scaling.',['engine','scale_buffers','start_modes','post']);
   for(const view of [...phases,...modes]){
+    if(view.active.includes('output'))view.paths.push('writeback');
+    if(view.active.includes('psum'))view.paths.push('sram-psum');
+    if(view.paths.includes('writeback')||view.paths.includes('sram-psum'))view.active.push('psum-memory');
     if(view.paths.includes('ctrl-format'))view.paths.push('ctrl-tile-format');
     for(const group of controlGroups)if(group.routes.some(id=>view.paths.includes(id))){view.active.push(group.node);view.paths.push(group.feed);}
     view.active=[...new Set(view.active)];view.paths=[...new Set(view.paths)];
@@ -203,7 +208,7 @@
     const active=(kind,key)=>!selected||selected[kind].includes(key)?'is-active':'';
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2280 1760" role="img" aria-labelledby="tensor-svg-title tensor-svg-desc"><title id="tensor-svg-title">Tensor dataflow and work ownership${selected?.label?' — '+esc(selected.label):''}</title><desc id="tensor-svg-desc">RV32 registers supply captured Tensor configuration. WLD transports packed weights to per-dot ingress typecasts and local A/B cells. Descriptor controls select P, dot-local RSUM, scale decoding, scale delivery and output format.</desc><style>${style}</style><defs>${['data','weight','psum','optional','control'].map(k=>`<marker id="tensor-arrow-${k}" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L8 4L0 8Z" class="tensor-arrow-${k}"/></marker>`).join('')}</defs><rect class="tensor-bg" width="2280" height="1760"/><rect class="tensor-memory" x="570" y="470" width="660" height="1020"/><text class="tensor-caption" x="590" y="495">DOT-LOCAL PATHS · 8 INSTANCES SHOWN AS GROUPS</text><text class="tensor-caption" x="895" y="493">wtype</text><text class="tensor-caption" x="1805" y="465">stype</text><text class="tensor-caption" x="1660" y="1095">USE_SCALE</text><text class="tensor-caption" x="1490" y="865">scale source</text><text class="tensor-caption" x="1595" y="1265">P mode</text><text class="tensor-caption" x="1100" y="1335">RSUM</text>${paths.map(([id,d,kind])=>{
       const attrs=`data-tensor-path="${id}" class="tensor-wire tensor-${kind} ${active('paths',id)}"`;
-      if(kind!=='control')return `<path ${attrs} d="${d}" marker-end="url(#tensor-arrow-${kind})"/>`;
+      if(kind!=='control')return `<path ${attrs} d="${id==='sram-psum'?d.replace('H1218','H1078M1092 1495H1218'):d}" marker-end="url(#tensor-arrow-${kind})"/>`;
       const pts=points(d),end=pts[pts.length-1],prev=pts[pts.length-2];
       const arrowStart=end.map((v,i)=>v-Math.sign(v-prev[i])*8);
       return `<g ${attrs}><path d="${controlPath(d)}"/><path d="M${arrowStart[0]} ${arrowStart[1]}L${end[0]} ${end[1]}" marker-end="url(#tensor-arrow-control)"/></g>`;
@@ -213,7 +218,7 @@
       const shape=down?`<path class="tensor-box" d="M${x} ${y}H${x+w}V${y+h-25}L${x+w/2} ${y+h}L${x} ${y+h-25}Z"/>`:mux?`<path class="tensor-box" d="M${x} ${y}L${x+w} ${y+25}V${y+h-25}L${x} ${y+h}Z"/>`:`<rect class="tensor-box" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
       const ty=mux?y+h/2-4:y+26;
       return `<g data-tensor-node="${id}" class="${active('active',id)} ${['csr-fields','start-fields','wsld-fields'].includes(id)?'tensor-control-source':''}" role="button" tabindex="0" aria-label="${esc(title)}: explore this path">${shape}${mux&&!down?`<path class="tensor-control-port" d="M${x+w/2} ${y}V${y+12.5}"/>`:''}<text class="tensor-title ${mux?'tensor-mux-title':''}" x="${x+w/2}" y="${ty}" text-anchor="middle">${esc(title)}</text><text class="tensor-sub" x="${x+w/2}" y="${ty+21}" text-anchor="middle">${esc(sub)}</text>${id==='owner'?'<text class="tensor-sub" x="675" y="121" text-anchor="middle">pointers · count · accepted / pending / queued work</text>':''}</g>`;
-    }).join('')}<text class="tensor-caption" x="985" y="1445">RSUM: one final vector</text><text class="tensor-caption" x="985" y="1465">No scale / SRAM P</text><text class="tensor-caption" x="340" y="1640">O → SRAM → P on a later reduction tile; logical memory streams share the fabric</text><text class="tensor-caption" x="40" y="1740">All blocks remain visible · bright routes mark the selected path, not clock gating · CSR / START / WSLD use separate lanes</text></svg>`;
+    }).join('')}<text class="tensor-caption" x="985" y="1445">RSUM: one final vector</text><text class="tensor-caption" x="985" y="1465">No scale / SRAM P</text><text class="tensor-caption" x="340" y="1640">O writes → DTCM / SRAM → later P reads; separate transactions, not a combinational loop</text><text class="tensor-caption" x="40" y="1740">All blocks remain visible · bright routes mark the selected path, not clock gating · gaps at crossings mean no connection</text></svg>`;
   }
   window.E3TensorPipeline={sources,slides,phases,nodes,paths,modes,families,controlGroups,render};
 })();
